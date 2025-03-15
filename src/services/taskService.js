@@ -10,9 +10,23 @@ class TaskService {
     try {
       return await Task.create(taskData);
     } catch (error) {
-      if (error.name === "SequelizeValidationError") {
+      // Tratamento específico para diferentes tipos de erros do Sequelize
+      if (
+        error.name === "SequelizeValidationError" ||
+        error.name === "SequelizeUniqueConstraintError"
+      ) {
         throw new Error(error.errors[0].message);
       }
+
+      // Para erros de NULL (campos obrigatórios)
+      if (
+        error.name === "SequelizeError" ||
+        (error.name === "SequelizeValidationError" &&
+          error.message.includes("cannot be null"))
+      ) {
+        throw new Error("O título da tarefa é obrigatório");
+      }
+
       throw new Error(`Erro ao criar tarefa: ${error.message}`);
     }
   }
