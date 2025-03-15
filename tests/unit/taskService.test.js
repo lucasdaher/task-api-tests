@@ -1,37 +1,30 @@
-const mongoose = require("mongoose");
-const { MongoMemoryServer } = require("mongodb-memory-server");
-const Task = require("../../src/models/Task");
+const { sequelize, Task } = require("../../src/models");
 const taskService = require("../../src/services/taskService");
 
-let mongoServer;
+// Dados de exemplo para os testes
+const sampleTask = {
+  title: "Tarefa de teste",
+  description: "Descrição da tarefa de teste",
+  status: "pendente",
+  priority: "média",
+};
 
 // Configuração do ambiente de teste
 beforeAll(async () => {
-  mongoServer = await MongoMemoryServer.create();
-  const uri = mongoServer.getUri();
-  await mongoose.connect(uri);
+  await sequelize.sync({ force: true }); // Recria as tabelas em cada execução
 });
 
 // Limpeza do ambiente após os testes
 afterAll(async () => {
-  await mongoose.disconnect();
-  await mongoServer.stop();
+  await sequelize.close();
 });
 
 // Limpeza do banco de dados antes de cada teste
 beforeEach(async () => {
-  await Task.deleteMany({});
+  await Task.destroy({ where: {}, truncate: true });
 });
 
 describe("TaskService", () => {
-  // Dados de exemplo para os testes
-  const sampleTask = {
-    title: "Tarefa de teste",
-    description: "Descrição da tarefa de teste",
-    status: "pendente",
-    priority: "média",
-  };
-
   describe("createTask", () => {
     it("deve criar uma nova tarefa com sucesso", async () => {
       const createdTask = await taskService.createTask(sampleTask);
@@ -41,14 +34,14 @@ describe("TaskService", () => {
       expect(createdTask.description).toBe(sampleTask.description);
       expect(createdTask.status).toBe(sampleTask.status);
       expect(createdTask.priority).toBe(sampleTask.priority);
-      expect(createdTask._id).toBeDefined();
+      expect(createdTask.id).toBeDefined();
     });
 
     it("deve lançar erro quando dados obrigatórios não são fornecidos", async () => {
       const invalidTask = { description: "Sem título" };
 
       await expect(taskService.createTask(invalidTask)).rejects.toThrow(
-        "Erro ao criar tarefa"
+        "O título da tarefa é obrigatório"
       );
     });
   });
@@ -61,7 +54,7 @@ describe("TaskService", () => {
 
     it("deve retornar todas as tarefas cadastradas", async () => {
       // Criar algumas tarefas de teste
-      await Task.create([
+      await Task.bulkCreate([
         sampleTask,
         { ...sampleTask, title: "Segunda tarefa", priority: "alta" },
         { ...sampleTask, title: "Terceira tarefa", status: "concluída" },
@@ -75,7 +68,7 @@ describe("TaskService", () => {
 
     it("deve filtrar tarefas corretamente", async () => {
       // Criar algumas tarefas de teste
-      await Task.create([
+      await Task.bulkCreate([
         sampleTask,
         { ...sampleTask, title: "Tarefa alta prioridade", priority: "alta" },
         { ...sampleTask, title: "Tarefa concluída", status: "concluída" },
@@ -98,15 +91,15 @@ describe("TaskService", () => {
     it("deve retornar uma tarefa específica pelo ID", async () => {
       const createdTask = await Task.create(sampleTask);
 
-      const foundTask = await taskService.getTaskById(createdTask._id);
+      const foundTask = await taskService.getTaskById(createdTask.id);
 
       expect(foundTask).toBeDefined();
-      expect(foundTask._id.toString()).toBe(createdTask._id.toString());
+      expect(foundTask.id).toBe(createdTask.id);
       expect(foundTask.title).toBe(sampleTask.title);
     });
 
     it("deve lançar erro quando a tarefa não existe", async () => {
-      const nonExistentId = new mongoose.Types.ObjectId();
+      const nonExistentId = 9999;
 
       await expect(taskService.getTaskById(nonExistentId)).rejects.toThrow(
         "Tarefa não encontrada"
@@ -124,7 +117,7 @@ describe("TaskService", () => {
       };
 
       const updatedTask = await taskService.updateTask(
-        createdTask._id,
+        createdTask.id,
         updateData
       );
 
@@ -134,7 +127,7 @@ describe("TaskService", () => {
     });
 
     it("deve lançar erro ao tentar atualizar uma tarefa inexistente", async () => {
-      const nonExistentId = new mongoose.Types.ObjectId();
+      const nonExistentId = 9999;
 
       await expect(
         taskService.updateTask(nonExistentId, { title: "Novo título" })
@@ -146,17 +139,17 @@ describe("TaskService", () => {
     it("deve excluir uma tarefa existente", async () => {
       const createdTask = await Task.create(sampleTask);
 
-      const result = await taskService.deleteTask(createdTask._id);
+      const result = await taskService.deleteTask(createdTask.id);
 
       expect(result.message).toBe("Tarefa removida com sucesso");
 
       // Verificar se a tarefa foi realmente removida
-      const tasks = await Task.find({});
+      const tasks = await Task.findAll();
       expect(tasks).toHaveLength(0);
     });
 
     it("deve lançar erro ao tentar excluir uma tarefa inexistente", async () => {
-      const nonExistentId = new mongoose.Types.ObjectId();
+      const nonExistentId = 9999;
 
       await expect(taskService.deleteTask(nonExistentId)).rejects.toThrow(
         "Tarefa não encontrada"
@@ -169,7 +162,7 @@ describe("TaskService", () => {
       const createdTask = await Task.create(sampleTask);
 
       const updatedTask = await taskService.updateTaskStatus(
-        createdTask._id,
+        createdTask.id,
         "concluída"
       );
 
@@ -181,7 +174,7 @@ describe("TaskService", () => {
       const createdTask = await Task.create(sampleTask);
 
       await expect(
-        taskService.updateTaskStatus(createdTask._id, "status_invalido")
+        taskService.updateTaskStatus(createdTask.id, "status_invalido")
       ).rejects.toThrow("Status inválido");
     });
   });

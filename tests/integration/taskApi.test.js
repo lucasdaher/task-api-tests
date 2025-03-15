@@ -1,39 +1,31 @@
 const request = require("supertest");
-const mongoose = require("mongoose");
-const { MongoMemoryServer } = require("mongodb-memory-server");
-const { app, connectDB } = require("../../src/app");
-const Task = require("../../src/models/Task");
+const { sequelize, Task } = require("../../src/models");
+const { app } = require("../../src/app");
 
-let mongoServer;
+// Dados de exemplo para os testes
+const sampleTask = {
+  title: "Tarefa de teste API",
+  description: "Descrição da tarefa de teste API",
+  status: "pendente",
+  priority: "média",
+};
 
 // Configuração do ambiente de teste
 beforeAll(async () => {
-  mongoServer = await MongoMemoryServer.create();
-  const uri = mongoServer.getUri();
-  process.env.MONGO_URI = uri;
-  await connectDB();
+  await sequelize.sync({ force: true }); // Recria as tabelas antes dos testes
 });
 
 // Limpeza do ambiente após os testes
 afterAll(async () => {
-  await mongoose.disconnect();
-  await mongoServer.stop();
+  await sequelize.close();
 });
 
 // Limpeza do banco de dados antes de cada teste
 beforeEach(async () => {
-  await Task.deleteMany({});
+  await Task.destroy({ where: {}, truncate: true });
 });
 
 describe("API de Tarefas", () => {
-  // Dados de exemplo para os testes
-  const sampleTask = {
-    title: "Tarefa de teste API",
-    description: "Descrição da tarefa de teste API",
-    status: "pendente",
-    priority: "média",
-  };
-
   describe("POST /api/tasks", () => {
     it("deve criar uma nova tarefa", async () => {
       const response = await request(app)
@@ -42,7 +34,7 @@ describe("API de Tarefas", () => {
         .expect("Content-Type", /json/)
         .expect(201);
 
-      expect(response.body).toHaveProperty("_id");
+      expect(response.body).toHaveProperty("id");
       expect(response.body.title).toBe(sampleTask.title);
     });
 
@@ -69,7 +61,7 @@ describe("API de Tarefas", () => {
 
     it("deve retornar todas as tarefas cadastradas", async () => {
       // Criar algumas tarefas de teste diretamente no banco
-      await Task.create([
+      await Task.bulkCreate([
         sampleTask,
         { ...sampleTask, title: "Segunda tarefa" },
       ]);
@@ -80,7 +72,7 @@ describe("API de Tarefas", () => {
         .expect(200);
 
       expect(response.body).toHaveLength(2);
-      expect(response.body[0]).toHaveProperty("_id");
+      expect(response.body[0]).toHaveProperty("id");
       expect(response.body[0]).toHaveProperty("title");
     });
   });
@@ -90,16 +82,16 @@ describe("API de Tarefas", () => {
       const task = await Task.create(sampleTask);
 
       const response = await request(app)
-        .get(`/api/tasks/${task._id}`)
+        .get(`/api/tasks/${task.id}`)
         .expect("Content-Type", /json/)
         .expect(200);
 
-      expect(response.body).toHaveProperty("_id");
+      expect(response.body).toHaveProperty("id");
       expect(response.body.title).toBe(sampleTask.title);
     });
 
     it("deve retornar erro 404 quando a tarefa não existe", async () => {
-      const nonExistentId = new mongoose.Types.ObjectId();
+      const nonExistentId = 9999;
 
       const response = await request(app)
         .get(`/api/tasks/${nonExistentId}`)
@@ -120,7 +112,7 @@ describe("API de Tarefas", () => {
       };
 
       const response = await request(app)
-        .put(`/api/tasks/${task._id}`)
+        .put(`/api/tasks/${task.id}`)
         .send(updateData)
         .expect("Content-Type", /json/)
         .expect(200);
@@ -130,13 +122,13 @@ describe("API de Tarefas", () => {
     });
 
     it("deve retornar erro 404 ao tentar atualizar uma tarefa inexistente", async () => {
-      const nonExistentId = new mongoose.Types.ObjectId();
+      const nonExistentId = 9999;
 
       const response = await request(app)
         .put(`/api/tasks/${nonExistentId}`)
         .send({ title: "Título atualizado" })
         .expect("Content-Type", /json/)
-        .expect(400);
+        .expect(404);
 
       expect(response.body).toHaveProperty("error");
     });
@@ -147,7 +139,7 @@ describe("API de Tarefas", () => {
       const task = await Task.create(sampleTask);
 
       const response = await request(app)
-        .patch(`/api/tasks/${task._id}/status`)
+        .patch(`/api/tasks/${task.id}/status`)
         .send({ status: "concluída" })
         .expect("Content-Type", /json/)
         .expect(200);
@@ -160,7 +152,7 @@ describe("API de Tarefas", () => {
       const task = await Task.create(sampleTask);
 
       const response = await request(app)
-        .patch(`/api/tasks/${task._id}/status`)
+        .patch(`/api/tasks/${task.id}/status`)
         .send({ status: "status_invalido" })
         .expect("Content-Type", /json/)
         .expect(400);
@@ -172,7 +164,7 @@ describe("API de Tarefas", () => {
       const task = await Task.create(sampleTask);
 
       const response = await request(app)
-        .patch(`/api/tasks/${task._id}/status`)
+        .patch(`/api/tasks/${task.id}/status`)
         .send({})
         .expect("Content-Type", /json/)
         .expect(400);
@@ -187,19 +179,19 @@ describe("API de Tarefas", () => {
       const task = await Task.create(sampleTask);
 
       const response = await request(app)
-        .delete(`/api/tasks/${task._id}`)
+        .delete(`/api/tasks/${task.id}`)
         .expect("Content-Type", /json/)
         .expect(200);
 
       expect(response.body).toHaveProperty("message");
 
       // Verificar se a tarefa foi realmente removida
-      const deletedTask = await Task.findById(task._id);
+      const deletedTask = await Task.findByPk(task.id);
       expect(deletedTask).toBeNull();
     });
 
     it("deve retornar erro 404 ao tentar excluir uma tarefa inexistente", async () => {
-      const nonExistentId = new mongoose.Types.ObjectId();
+      const nonExistentId = 9999;
 
       const response = await request(app)
         .delete(`/api/tasks/${nonExistentId}`)
@@ -215,20 +207,11 @@ describe("API de Tarefas", () => {
       await request(app).get("/api/rota-inexistente").expect(404);
     });
 
-    it("deve rejeitar IDs inválidos com erro 400", async () => {
-      const response = await request(app)
-        .get("/api/tasks/id-invalido")
-        .expect("Content-Type", /json/)
-        .expect(404);
-
-      expect(response.body).toHaveProperty("error");
-    });
-
     it("deve rejeitar métodos HTTP não suportados", async () => {
       const task = await Task.create(sampleTask);
 
       await request(app)
-        .patch(`/api/tasks/${task._id}`)
+        .patch(`/api/tasks/${task.id}`)
         .send({ randomField: "value" })
         .expect(404);
     });

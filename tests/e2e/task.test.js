@@ -1,29 +1,20 @@
 const request = require("supertest");
-const mongoose = require("mongoose");
-const { MongoMemoryServer } = require("mongodb-memory-server");
-const { app, connectDB } = require("../../src/app");
-const Task = require("../../src/models/Task");
-
-let mongoServer;
-let createdTaskId;
+const { sequelize, Task } = require("../../src/models");
+const { app } = require("../../src/app");
 
 // Configuração do ambiente de teste
 beforeAll(async () => {
-  mongoServer = await MongoMemoryServer.create();
-  const uri = mongoServer.getUri();
-  process.env.MONGO_URI = uri;
-  await connectDB();
+  await sequelize.sync({ force: true }); // Recria as tabelas antes dos testes
 });
 
 // Limpeza do ambiente após os testes
 afterAll(async () => {
-  await mongoose.disconnect();
-  await mongoServer.stop();
+  await sequelize.close();
 });
 
-// Limpeza do banco de dados antes dos testes e2e
-beforeAll(async () => {
-  await Task.deleteMany({});
+// Limpeza do banco de dados antes de todos os testes e2e
+beforeEach(async () => {
+  await Task.destroy({ where: {}, truncate: true });
 });
 
 describe("E2E - Fluxo completo de gerenciamento de tarefas", () => {
@@ -58,11 +49,11 @@ describe("E2E - Fluxo completo de gerenciamento de tarefas", () => {
       .expect("Content-Type", /json/)
       .expect(201);
 
-    expect(createResponse.body).toHaveProperty("_id");
+    expect(createResponse.body).toHaveProperty("id");
     expect(createResponse.body.title).toBe(newTask.title);
     expect(createResponse.body.status).toBe("pendente"); // Status padrão
 
-    createdTaskId = createResponse.body._id;
+    const createdTaskId = createResponse.body.id;
 
     // 3. Verificar se a tarefa foi criada corretamente
     const getResponse = await request(app)
@@ -70,7 +61,7 @@ describe("E2E - Fluxo completo de gerenciamento de tarefas", () => {
       .expect("Content-Type", /json/)
       .expect(200);
 
-    expect(getResponse.body._id).toBe(createdTaskId);
+    expect(getResponse.body.id).toBe(createdTaskId);
     expect(getResponse.body.title).toBe(newTask.title);
 
     // 4. Atualizar a tarefa para "em andamento"
@@ -81,7 +72,7 @@ describe("E2E - Fluxo completo de gerenciamento de tarefas", () => {
       .expect(200);
 
     expect(updateStatusResponse.body.status).toBe("em andamento");
-    expect(updateStatusResponse.body._id).toBe(createdTaskId);
+    expect(updateStatusResponse.body.id).toBe(createdTaskId);
 
     // 5. Atualizar informações da tarefa
     const updateResponse = await request(app)
@@ -133,7 +124,7 @@ describe("E2E - Fluxo completo de gerenciamento de tarefas", () => {
     expect(invalidTaskResponse.body).toHaveProperty("error");
 
     // 2. Tentar acessar uma tarefa inexistente
-    const nonExistentId = new mongoose.Types.ObjectId();
+    const nonExistentId = 9999;
     const nonExistentResponse = await request(app)
       .get(`/api/tasks/${nonExistentId}`)
       .expect("Content-Type", /json/)
@@ -148,7 +139,7 @@ describe("E2E - Fluxo completo de gerenciamento de tarefas", () => {
       .send(newTask)
       .expect(201);
 
-    const tempTaskId = tempTask.body._id;
+    const tempTaskId = tempTask.body.id;
 
     const invalidStatusResponse = await request(app)
       .patch(`/api/tasks/${tempTaskId}/status`)
@@ -186,31 +177,31 @@ describe("E2E - Fluxo completo de gerenciamento de tarefas", () => {
 
     // 3. Verificar se podemos completar todas as tarefas
     await request(app)
-      .patch(`/api/tasks/${task1.body._id}/status`)
+      .patch(`/api/tasks/${task1.body.id}/status`)
       .send({ status: "concluída" })
       .expect(200);
 
     await request(app)
-      .patch(`/api/tasks/${task2.body._id}/status`)
+      .patch(`/api/tasks/${task2.body.id}/status`)
       .send({ status: "concluída" })
       .expect(200);
 
     await request(app)
-      .patch(`/api/tasks/${task3.body._id}/status`)
+      .patch(`/api/tasks/${task3.body.id}/status`)
       .send({ status: "concluída" })
       .expect(200);
 
     // 4. Verificar se todas as tarefas estão concluídas
     const completedTask1 = await request(app)
-      .get(`/api/tasks/${task1.body._id}`)
+      .get(`/api/tasks/${task1.body.id}`)
       .expect(200);
 
     const completedTask2 = await request(app)
-      .get(`/api/tasks/${task2.body._id}`)
+      .get(`/api/tasks/${task2.body.id}`)
       .expect(200);
 
     const completedTask3 = await request(app)
-      .get(`/api/tasks/${task3.body._id}`)
+      .get(`/api/tasks/${task3.body.id}`)
       .expect(200);
 
     expect(completedTask1.body.status).toBe("concluída");
@@ -218,11 +209,11 @@ describe("E2E - Fluxo completo de gerenciamento de tarefas", () => {
     expect(completedTask3.body.status).toBe("concluída");
 
     // 5. Limpar todas as tarefas criadas
-    await request(app).delete(`/api/tasks/${task1.body._id}`).expect(200);
+    await request(app).delete(`/api/tasks/${task1.body.id}`).expect(200);
 
-    await request(app).delete(`/api/tasks/${task2.body._id}`).expect(200);
+    await request(app).delete(`/api/tasks/${task2.body.id}`).expect(200);
 
-    await request(app).delete(`/api/tasks/${task3.body._id}`).expect(200);
+    await request(app).delete(`/api/tasks/${task3.body.id}`).expect(200);
 
     // 6. Verificar se todas as tarefas foram removidas
     const finalResponse = await request(app).get("/api/tasks").expect(200);

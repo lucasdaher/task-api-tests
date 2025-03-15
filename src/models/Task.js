@@ -1,34 +1,67 @@
-const mongoose = require("mongoose");
+"use strict";
 
-const TaskSchema = new mongoose.Schema({
-  title: {
-    type: String,
-    required: [true, "O título da tarefa é obrigatório"],
-    trim: true,
-    maxlength: [100, "O título não pode ter mais de 100 caracteres"],
-  },
-  description: {
-    type: String,
-    trim: true,
-    maxlength: [500, "A descrição não pode ter mais de 500 caracteres"],
-  },
-  status: {
-    type: String,
-    enum: ["pendente", "em andamento", "concluída"],
-    default: "pendente",
-  },
-  priority: {
-    type: String,
-    enum: ["baixa", "média", "alta"],
-    default: "média",
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-  dueDate: {
-    type: Date,
-  },
-});
+module.exports = (sequelize, DataTypes) => {
+  const Task = sequelize.define(
+    "Task",
+    {
+      title: {
+        type: DataTypes.STRING(100),
+        allowNull: false,
+        validate: {
+          notEmpty: {
+            msg: "O título da tarefa é obrigatório",
+          },
+          len: {
+            args: [1, 100],
+            msg: "O título não pode ter mais de 100 caracteres",
+          },
+        },
+      },
+      description: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        validate: {
+          len: {
+            args: [0, 500],
+            msg: "A descrição não pode ter mais de 500 caracteres",
+          },
+        },
+      },
+      status: {
+        type: DataTypes.ENUM("pendente", "em andamento", "concluída"),
+        defaultValue: "pendente",
+        allowNull: false,
+        validate: {
+          isIn: {
+            args: [["pendente", "em andamento", "concluída"]],
+            msg: "Status deve ser pendente, em andamento ou concluída",
+          },
+        },
+      },
+      priority: {
+        type: DataTypes.ENUM("baixa", "média", "alta"),
+        defaultValue: "média",
+        allowNull: false,
+        validate: {
+          isIn: {
+            args: [["baixa", "média", "alta"]],
+            msg: "Prioridade deve ser baixa, média ou alta",
+          },
+        },
+      },
+      dueDate: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+    },
+    {
+      timestamps: true,
+      tableName: "tasks",
+      underscored: true, // usa snake_case para nomes de colunas no banco
+      createdAt: "created_at",
+      updatedAt: "updated_at",
+    }
+  );
 
-module.exports = mongoose.model("Task", TaskSchema);
+  return Task;
+};

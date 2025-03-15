@@ -5,21 +5,24 @@ Este projeto consiste em uma API REST completa para gerenciamento de tarefas, de
 
 - **Node.js**: Ambiente de execução JavaScript
 - **Express**: Framework web para Node.js
-- **MongoDB**: Banco de dados NoSQL
-- **Mongoose**: ODM para MongoDB
+- **MySQL**: Banco de dados relacional
+- **Sequelize**: ORM para bancos de dados relacionais
 - **Jest**: Framework de testes
 - **Supertest**: Biblioteca para testes de API
-- **MongoDB Memory Server**: Banco de dados em memória para testes
+- **SQLite**: Banco de dados em memória para testes
 
 ## Estrutura
 
 ```
 task-api-tests/
   ├── src/
+  │   ├── config/
+  │   │   └── database.js
   │   ├── controllers/
   │   │   └── taskController.js
   │   ├── models/
-  │   │   └── Task.js
+  │   │   ├── index.js
+  │   │   └── task.js
   │   ├── routes/
   │   │   └── taskRoutes.js
   │   ├── services/
@@ -30,36 +33,52 @@ task-api-tests/
   │   │   └── taskService.test.js
   │   ├── integration/
   │   │   └── taskApi.test.js
-  │   └── e2e/
-  │       └── task.test.js
+  │   ├── e2e/
+  │   │   └── task.test.js
+  │   └── setup.js
+  ├── setup-database.sql
   ├── package.json
-  ├── .gitignore
-  ├── yarn.lock
   ├── jest.config.js
+  ├── .env.example
   └── README.md
 ```
 
-## Instalando e configurando
+## Instalação e configuração
 
-1. Clone este repositório:
+1. **Clone este repositório**:
    ```bash
    git clone https://github.com/lucasdaher/task-api-tests.git
    cd task-api-tests
    ```
 
-2. Instale as dependências: (É necessário possuir o gerenciador de pacotes **YARN**)
+2. **Instale as dependências**:
    ```bash
    yarn install
    ```
 
-3. Configure as variáveis de ambiente:
-   Crie um arquivo `.env` na raiz do projeto com o seguinte conteúdo:
-   ```
-   PORT=3000
-   MONGO_URI=mongodb://localhost:27017/todo_app
-   ```
+3. **Configure o banco de dados MySQL**:
+   - Certifique-se de ter o MySQL instalado e em execução
+   - Use o MySQL Workbench ou o terminal para executar o script `setup-database.sql`:
+     ```bash
+     mysql -u root -p < setup-database.sql
+     ```
+   - Ou copie e cole o conteúdo do arquivo no MySQL Workbench e execute
 
-4. Inicie o servidor:
+4. **Configure as variáveis de ambiente**:
+   - Copie o arquivo `.env.example` para `.env`:
+     ```bash
+     cp .env.example .env
+     ```
+   - Edite o arquivo `.env` com suas configurações do MySQL:
+     ```
+     DB_USER=root
+     DB_PASSWORD=sua_senha_aqui
+     DB_NAME=task_api_tests
+     DB_HOST=localhost
+     DB_PORT=3306
+     ```
+
+5. **Inicie o servidor**:
    ```bash
    yarn start
    ```
@@ -137,7 +156,7 @@ yarn run test:coverage
 
 1. **Testes Unitários**
    - Testam isoladamente os serviços e funções da aplicação
-   - Utilizam um banco de dados em memória para simular o MongoDB
+   - Utilizam SQLite em memória para simular o banco de dados
 
 2. **Testes de Integração**
    - Testam a integração entre controllers, services e routes
@@ -147,9 +166,20 @@ yarn run test:coverage
    - Testam fluxos completos da aplicação
    - Simulam o uso real da API por parte dos usuários
 
-4. **Relatórios de Cobertura**
-   - Medem a porcentagem de código coberta pelos testes
-   - Identificam áreas que precisam de mais testes
+## Modelo de Dados
+
+### Tabela `tasks`
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| id | INT | Identificador único, autoincremento (chave primária) |
+| title | VARCHAR(100) | Título da tarefa (obrigatório) |
+| description | TEXT | Descrição detalhada da tarefa (opcional) |
+| status | ENUM | Estado da tarefa: 'pendente', 'em andamento', 'concluída' |
+| priority | ENUM | Prioridade da tarefa: 'baixa', 'média', 'alta' |
+| due_date | DATETIME | Data de vencimento da tarefa (opcional) |
+| created_at | DATETIME | Data de criação do registro |
+| updated_at | DATETIME | Data da última atualização do registro |
 
 ### Documentação dos Testes
 
@@ -160,3 +190,20 @@ Todos os testes são documentados no arquivo de [Documentação de Testes](./tes
 - Resultados dos testes
 - Análise de cobertura
 - Recomendações para melhorias
+
+## Problemas que podem acontecer
+
+1. **Erro de conexão com MySQL**
+   - Verifique se o serviço MySQL está em execução
+   - Confirme as credenciais no arquivo `.env`
+   - Certifique-se de que o banco de dados `task_api_tests` existe
+
+2. **Erro de sincronização de modelos**
+   - Verifique se as permissões do usuário do banco são adequadas
+   - Tente usar `{ force: true }` na primeira execução para criar as tabelas
+   - Verifique os logs de erro para mensagens específicas do MySQL
+
+3. **Falha nos testes**
+   - Certifique-se de que o SQLite está instalado corretamente
+   - Verifique se há problemas de versão com as dependências
+   - Use `--verbose` para ver detalhes: `yarn test -- --verbose`

@@ -1,4 +1,4 @@
-const Task = require("../models/Task");
+const { Task } = require("../models");
 
 class TaskService {
   /**
@@ -8,9 +8,11 @@ class TaskService {
    */
   async createTask(taskData) {
     try {
-      const task = new Task(taskData);
-      return await task.save();
+      return await Task.create(taskData);
     } catch (error) {
+      if (error.name === "SequelizeValidationError") {
+        throw new Error(error.errors[0].message);
+      }
       throw new Error(`Erro ao criar tarefa: ${error.message}`);
     }
   }
@@ -22,7 +24,10 @@ class TaskService {
    */
   async getAllTasks(filter = {}) {
     try {
-      return await Task.find(filter).sort({ createdAt: -1 });
+      return await Task.findAll({
+        where: filter,
+        order: [["created_at", "DESC"]],
+      });
     } catch (error) {
       throw new Error(`Erro ao listar tarefas: ${error.message}`);
     }
@@ -35,12 +40,15 @@ class TaskService {
    */
   async getTaskById(id) {
     try {
-      const task = await Task.findById(id);
+      const task = await Task.findByPk(id);
       if (!task) {
         throw new Error("Tarefa não encontrada");
       }
       return task;
     } catch (error) {
+      if (error.message === "Tarefa não encontrada") {
+        throw error;
+      }
       throw new Error(`Erro ao buscar tarefa: ${error.message}`);
     }
   }
@@ -53,17 +61,15 @@ class TaskService {
    */
   async updateTask(id, updateData) {
     try {
-      const task = await Task.findByIdAndUpdate(id, updateData, {
-        new: true,
-        runValidators: true,
-      });
+      const task = await this.getTaskById(id);
 
-      if (!task) {
-        throw new Error("Tarefa não encontrada");
-      }
+      await task.update(updateData);
 
       return task;
     } catch (error) {
+      if (error.name === "SequelizeValidationError") {
+        throw new Error(error.errors[0].message);
+      }
       throw new Error(`Erro ao atualizar tarefa: ${error.message}`);
     }
   }
@@ -75,11 +81,9 @@ class TaskService {
    */
   async deleteTask(id) {
     try {
-      const task = await Task.findByIdAndDelete(id);
+      const task = await this.getTaskById(id);
 
-      if (!task) {
-        throw new Error("Tarefa não encontrada");
-      }
+      await task.destroy();
 
       return { message: "Tarefa removida com sucesso" };
     } catch (error) {
