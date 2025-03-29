@@ -71,7 +71,9 @@ describe("E2E - Fluxo completo de gerenciamento de tarefas", () => {
       .expect("Content-Type", /json/)
       .expect(200);
 
-    expect(updateStatusResponse.body.status).toBe("em andamento");
+    // Forçando erro
+    // expect(updateStatusResponse.body.status).toBe("em andamento");
+    expect(updateStatusResponse.body.status).toBe("pendente");
     expect(updateStatusResponse.body.id).toBe(createdTaskId);
 
     // 5. Atualizar informações da tarefa
