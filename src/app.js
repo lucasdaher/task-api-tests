@@ -6,7 +6,7 @@ const { sequelize } = require("./models");
 const taskRoutes = require("./routes/taskRoutes");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3005;
 
 // Middleware
 app.use(cors());
