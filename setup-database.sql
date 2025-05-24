@@ -19,8 +19,7 @@ CREATE TABLE IF NOT EXISTS tasks (
 -- GRANT ALL PRIVILEGES ON todo_app.* TO 'nomedousuario'@'localhost';
 -- FLUSH PRIVILEGES;
 
--- Inserir algumas tarefas de exemplo (opcional)
 INSERT INTO tasks (title, description, status, priority) VALUES
-('Fazer compras', 'Comprar leite, pão e ovos', 'pendente', 'média'),
-('Estudar para a prova', 'Revisar capítulos 3 e 4', 'em andamento', 'alta'),
+('Fazer trabalho de teste', 'Desenvolver sistema para testes', 'pendente', 'alta'),
+('Estudar para a prova', 'Revisar conteúdo de testes', 'em andamento', 'baixa'),
 ('Pagar contas', 'Água, luz e internet', 'concluída', 'alta');
