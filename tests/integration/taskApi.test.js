@@ -2,7 +2,6 @@ const request = require("supertest");
 const { sequelize, Task } = require("../../src/models");
 const { app } = require("../../src/app");
 
-// Dados de exemplo para os testes
 const sampleTask = {
   title: "Tarefa de teste API",
   description: "Descrição da tarefa de teste API",
@@ -10,17 +9,14 @@ const sampleTask = {
   priority: "média",
 };
 
-// Configuração do ambiente de teste
 beforeAll(async () => {
-  await sequelize.sync({ force: true }); // Recria as tabelas antes dos testes
+  await sequelize.sync({ force: true });
 });
 
-// Limpeza do ambiente após os testes
 afterAll(async () => {
   await sequelize.close();
 });
 
-// Limpeza do banco de dados antes de cada teste
 beforeEach(async () => {
   await Task.destroy({ where: {}, truncate: true });
 });
@@ -60,7 +56,6 @@ describe("API de Tarefas", () => {
     });
 
     it("deve retornar todas as tarefas cadastradas", async () => {
-      // Criar algumas tarefas de teste diretamente no banco
       await Task.bulkCreate([
         sampleTask,
         { ...sampleTask, title: "Segunda tarefa" },
@@ -145,7 +140,7 @@ describe("API de Tarefas", () => {
         .expect(200);
 
       expect(response.body.status).toBe("concluída");
-      expect(response.body.title).toBe(sampleTask.title); // Título não deve mudar
+      expect(response.body.title).toBe(sampleTask.title); // título não deve mudar
     });
 
     it("deve retornar erro 400 quando o status é inválido", async () => {
@@ -185,7 +180,6 @@ describe("API de Tarefas", () => {
 
       expect(response.body).toHaveProperty("message");
 
-      // Verificar se a tarefa foi realmente removida
       const deletedTask = await Task.findByPk(task.id);
       expect(deletedTask).toBeNull();
     });

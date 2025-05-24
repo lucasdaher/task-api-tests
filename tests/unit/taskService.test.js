@@ -1,7 +1,6 @@
 const { sequelize, Task } = require("../../src/models");
 const taskService = require("../../src/services/taskService");
 
-// Dados de exemplo para os testes
 const sampleTask = {
   title: "Tarefa de teste",
   description: "Descrição da tarefa de teste",
@@ -9,17 +8,15 @@ const sampleTask = {
   priority: "média",
 };
 
-// Configuração do ambiente de teste
 beforeAll(async () => {
-  await sequelize.sync({ force: true }); // Recria as tabelas em cada execução
+  await sequelize.sync({ force: true }); // recriar as tabelas
 });
 
-// Limpeza do ambiente após os testes
 afterAll(async () => {
   await sequelize.close();
 });
 
-// Limpeza do banco de dados antes de cada teste
+// limpa o banco antes de rodar
 beforeEach(async () => {
   await Task.destroy({ where: {}, truncate: true });
 });
@@ -53,7 +50,6 @@ describe("TaskService", () => {
     });
 
     it("deve retornar todas as tarefas cadastradas", async () => {
-      // Criar algumas tarefas de teste
       await Task.bulkCreate([
         sampleTask,
         { ...sampleTask, title: "Segunda tarefa", priority: "alta" },
@@ -67,7 +63,6 @@ describe("TaskService", () => {
     });
 
     it("deve filtrar tarefas corretamente", async () => {
-      // Criar algumas tarefas de teste
       await Task.bulkCreate([
         sampleTask,
         { ...sampleTask, title: "Tarefa alta prioridade", priority: "alta" },
@@ -123,7 +118,7 @@ describe("TaskService", () => {
 
       expect(updatedTask.title).toBe(updateData.title);
       expect(updatedTask.description).toBe(updateData.description);
-      expect(updatedTask.status).toBe(createdTask.status); // Não mudou
+      expect(updatedTask.status).toBe(createdTask.status);
     });
 
     it("deve lançar erro ao tentar atualizar uma tarefa inexistente", async () => {
@@ -143,7 +138,6 @@ describe("TaskService", () => {
 
       expect(result.message).toBe("Tarefa removida com sucesso");
 
-      // Verificar se a tarefa foi realmente removida
       const tasks = await Task.findAll();
       expect(tasks).toHaveLength(0);
     });
@@ -167,7 +161,7 @@ describe("TaskService", () => {
       );
 
       expect(updatedTask.status).toBe("concluída");
-      expect(updatedTask.title).toBe(sampleTask.title); // Outros campos não mudaram
+      expect(updatedTask.title).toBe(sampleTask.title);
     });
 
     it("deve rejeitar um status inválido", async () => {
